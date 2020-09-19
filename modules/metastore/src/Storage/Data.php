@@ -136,10 +136,30 @@ class Data implements StorerInterface, RetrieverInterface, BulkRetrieverInterfac
     if ($node && $node->get('moderation_state') !== 'published') {
       $node->set('moderation_state', 'published');
       $node->save();
+      $this->cleanUpRevisions($node);
       return $uuid;
     }
 
     throw new \Exception("No data with that identifier was found.");
+  }
+
+  /**
+   * Clean up all but the latest revision of a node just published.
+   *
+   * @param $node
+   *   The node being published.
+   */
+  private function cleanUpRevisions($node) {
+    $revisionIds = $this->nodeStorage->revisionIds($node);
+
+    // Search for and remove the latest revision from the list.
+    $latestId = $this->nodeStorage->getLatestRevisionId($node->id());
+    $latestIdKey = array_search($latestId, $revisionIds);
+    unset($revisionIds[$latestIdKey]);
+
+    foreach ($revisionIds as $revisionId) {
+      $this->nodeStorage->deleteRevision($revisionId);
+    }
   }
 
   /**
